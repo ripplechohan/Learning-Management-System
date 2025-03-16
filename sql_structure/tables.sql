@@ -4,7 +4,7 @@ USE LMS;
 
 -- Create Users table
 CREATE TABLE Users (
-    user_id INT PRIMARY KEY,
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL CHECK (email LIKE '%@%.%'),
     password VARCHAR(255) NOT NULL CHECK (LENGTH(password) >= 8),
@@ -12,17 +12,18 @@ CREATE TABLE Users (
     profile_image VARCHAR(255),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	mfa_secret VARCHAR(255) NULL,
     last_login TIMESTAMP NULL
 );
 
 -- Create Courses table
 CREATE TABLE Courses (
-    course_id INT PRIMARY KEY,
+    course_id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     category VARCHAR(255),
     skill_level TEXT NOT NULL CHECK (skill_level IN ('Beginner', 'Intermediate', 'Advanced')),
-    prereq_course_id INT NULL, -- This is self-referencing
+    prereq_course_id INT NULL,
     start_date DATE,
     end_date DATE,
     last_accessed DATE NULL,
@@ -32,7 +33,7 @@ CREATE TABLE Courses (
 
 -- Create Assignments table
 CREATE TABLE Assignments (
-    assignment_id INT PRIMARY KEY,
+    assignment_id INT PRIMARY KEY AUTO_INCREMENT,
     course_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
@@ -46,7 +47,7 @@ CREATE TABLE Assignments (
 
 -- Create Quizzes table
 CREATE TABLE Quizzes (
-    quiz_id INT PRIMARY KEY,
+    quiz_id INT PRIMARY KEY AUTO_INCREMENT,
     course_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
     is_automated_grading BOOLEAN DEFAULT TRUE,
@@ -57,7 +58,7 @@ CREATE TABLE Quizzes (
 
 -- Create Enrollments table
 CREATE TABLE Enrollments (
-    enrollment_id INT PRIMARY KEY,
+    enrollment_id INT PRIMARY KEY AUTO_INCREMENT,
     student_id INT NOT NULL,
     course_id INT NOT NULL,
     enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -69,7 +70,7 @@ CREATE TABLE Enrollments (
 
 -- Create Submissions table
 CREATE TABLE Submissions (
-    submission_id INT PRIMARY KEY,
+    submission_id INT PRIMARY KEY AUTO_INCREMENT,
     student_id INT NOT NULL,
     assignment_id INT NOT NULL,
     date_submitted TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -84,7 +85,7 @@ CREATE TABLE Submissions (
 
 -- Create Attendance table
 CREATE TABLE Attendance (
-    attendance_id INT PRIMARY KEY,
+    attendance_id INT PRIMARY KEY AUTO_INCREMENT,
     student_id INT NOT NULL,
     course_id INT NOT NULL,
     date DATE NOT NULL,
@@ -95,7 +96,7 @@ CREATE TABLE Attendance (
 
 -- Create Notifications table
 CREATE TABLE Notifications (
-    notification_id INT PRIMARY KEY,
+    notification_id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('Grade Update', 'Deadline Reminder', 'Course Update')),
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -104,7 +105,7 @@ CREATE TABLE Notifications (
 
 -- Create Questions table
 CREATE TABLE Questions (
-    question_id INT PRIMARY KEY,
+    question_id INT PRIMARY KEY AUTO_INCREMENT,
     quiz_id INT NOT NULL,
     text VARCHAR(255),
     question_format TEXT NOT NULL CHECK (question_format IN ('MCQ', 'Short Answer', 'Standardized')),
@@ -114,7 +115,7 @@ CREATE TABLE Questions (
 
 -- Create StudentFeedback table
 CREATE TABLE StudentFeedback(
-    feedback_id INT PRIMARY KEY,
+    feedback_id INT PRIMARY KEY AUTO_INCREMENT,
     student_id INT NOT NULL,
     course_id INT NOT NULL,
     topics_covered TEXT NOT NULL,
