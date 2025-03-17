@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Learning Management System - Grading Page">
+    <meta name="author" content="LMS Team">
+    <title>Grading | LMS</title>
+    
+    <!-- Core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/font-awesome.min.css" rel="stylesheet">
+    <link href="css/animate.min.css" rel="stylesheet">
+    <link href="css/prettyPhoto.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+    <link href="css/responsive.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <style>
+        .grading-container {
+            max-width: 700px;
+            margin: 50px auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .submission-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+        }
+
+        .grading-rubric {
+            background: #eef2f7;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+        }
+
+        label {
+            font-weight: bold;
+            text-align: left;
+            display: block;
+            margin-top: 10px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .btn-save {
+            width: 100%;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.3s;
+        }
+
+        .btn-save:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-inverse" role="banner">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="home.html"><img src="images/logo.png" alt="OLMS Logo" width="200" height="74" ></a>
+                </div>
+            <div class="collapse navbar-collapse navbar-right">
+                <ul class="nav navbar-nav">
+    <li><a href="home.html">Home</a></li>
+    <li><a href="Instructor-Dashboard.html">Dashboard</a></li>
+    <li><a href="courses.html">Courses</a></li>
+    <li><a href="contact.html">Contact Us</a></li>
+    <li><a href="profile.html">Profile</a></li>
+    <li id="auth-button">
+        <a class="btn btn-primary" href="login.html">Login</a>
+    </li>
+</ul>
+
+            </div>
+        </div>
+    </nav>
+
+    <!-- Grading Section -->
+    <div class="grading-container">
+        <h2>Grade Student Submission</h2>
+
+        <!-- Student Submission -->
+<div class="submission-box">
+    <h4>Student Submission</h4>
+    <p><strong>Student Name:</strong> John Doe</p>
+    <p><strong>Assignment Title:</strong> Research Paper</p>
+    <p><strong>Submission:</strong> <a href="download.php?file=student_submission.pdf">Download File</a></p>
+</div>
+
+
+        <!-- Grading Rubric -->
+        <div class="grading-rubric">
+            <h4>Grading Rubric</h4>
+            <ul>
+                <li>Content Quality: 40%</li>
+                <li>Structure & Organization: 30%</li>
+                <li>Grammar & Clarity: 20%</li>
+                <li>Timeliness: 10%</li>
+            </ul>
+        </div>
+
+        <!-- Score Input -->
+        <label for="score">Score (out of 100)</label>
+        <input type="number" id="score" min="0" max="100" placeholder="Enter Score">
+
+        <!-- Feedback Input -->
+        <label for="feedback">Feedback</label>
+        <textarea id="feedback" rows="4" placeholder="Enter feedback for the student"></textarea>
+
+        <!-- Save Grade Button -->
+        <button class="btn-save"><i class="fa fa-save"></i> Save Grade</button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white text-center py-3">
+        <p>&copy; 2025 Online Learning Management System | All Rights Reserved</p>
+    </footer>
+    
+    <!-- Scripts -->
+    <script src="js/jquery.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/main.js"></script>
+	<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let userLoggedIn = sessionStorage.getItem("loggedIn");
+        if (userLoggedIn) {
+            document.getElementById("auth-button").innerHTML = 
+                '<a class="btn btn-primary" href="logout.html">Logout</a>';
+        }
+    });
+</script>
+
+</body>
+</html>

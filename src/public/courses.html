@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Courses - Learning Management System">
+    <meta name="author" content="LMS Team">
+    <title>Courses | LMS</title>
+    
+    <!-- Core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/font-awesome.min.css" rel="stylesheet">
+    <link href="css/animate.min.css" rel="stylesheet">
+    <link href="css/prettyPhoto.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+    <link href="css/responsive.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+    <style>
+        body {
+            background-color: white;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        h1 {
+            text-align: center;
+            font-weight: bold;
+        }
+        .course-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .course-box {
+            width: 350px;
+            height: 150px;
+            background: white;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .course-box:hover {
+            transform: scale(1.05);
+            background-color: black;
+            color: white;
+        }
+        
+    </style>
+</head>
+<body>
+
+ <nav class="navbar navbar-inverse" role="banner">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+            <a class="navbar-brand" href="#"><img src="images/logo.png" alt="LMS Logo" width="200" height="74"></a>
+        </div>
+        <div class="collapse navbar-collapse navbar-right">
+            <ul class="nav navbar-nav">
+                <li><a href="home.html">Home</a></li>
+                <li class="active"><a href="courses.html">Courses</a></li>
+                <li><a href="about-us.html">About Us</a></li>
+                <li><a class="btn btn-primary" href="logout.html">Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<section>
+<!-- Course List -->
+<div class="container">
+    <h1>Available Courses</h1>
+    <div class="course-container">
+
+        <!-- Course 1 -->
+        <div class="course-box" onclick="location.href='courses.html'">
+            Introduction to Web Development
+        </div>
+
+        <!-- Course 2 -->
+        <div class="course-box" onclick="location.href='courses.html'">
+            Python for Beginners
+        </div>
+
+        <!-- Course 3 -->
+        <div class="course-box" onclick="location.href='courses.html'">
+            Data Analytics
+        </div>
+
+    </div>
+</div>
+</section>
+<footer class="bg-dark text-white text-center py-3">
+        <p>&copy; 2025 Online Learning Managnment System | All Rights Reserved</p>
+    </footer>
+
+    <script src="js/jquery.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

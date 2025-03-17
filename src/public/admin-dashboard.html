@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Admin Dashboard - Learning Management System">
+    <meta name="author" content="LMS Team">
+    <title>Admin Dashboard</title>
+    
+    <!-- core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/font-awesome.min.css" rel="stylesheet">
+    <link href="css/animate.min.css" rel="stylesheet">
+    <link href="css/prettyPhoto.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+    <link href="css/responsive.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+     <style>
+        body {
+            background-color: white;
+        }
+        #dashboard {
+            padding: 50px 0;
+        }
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .dashboard-box {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            width: 80%; /* Increased from 60% to 80% for better visibility */
+            text-align: center;
+            margin: 0 auto; /* Added to ensure centering */
+        }
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            border-bottom: 2px solid #ddd;
+            width: 80%; /* Added to match dashboard-box width */
+            margin: 0 auto 20px; /* Added for spacing and centering */
+        }
+        .nav-tabs a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: black;
+            border: 1px solid transparent;
+            margin: 5px;
+            border-radius: 5px;
+        }
+        .nav-tabs a.active {
+            background-color: #007bff;
+            color: white;
+        }
+        /* Added responsive design */
+        @media (max-width: 768px) {
+            .dashboard-box, .nav-tabs {
+                width: 95%;
+            }
+        }
+		table {
+            width: 100%; /* Makes the table span the full width of the container */
+            text-align: left; /* Aligns table headers and content to the left */
+        }
+        th, td {
+            padding: 10px; /* Adds spacing for better readability */
+        }
+        th {
+            text-align: left; /* Aligns table headers to the left */
+        }
+        .btn {
+            margin-top: 10px; /* Adds spacing around buttons */
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-inverse" role="banner">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="home.html"><img src="images/logo.png" alt="OLMS Logo" width="200" height="74" ></a>
+                </div>
+            <div class="collapse navbar-collapse navbar-right">
+            <ul class="nav navbar-nav navbar-right">
+                <ul class="nav navbar-nav">
+                    <li><a href="home.html">Home</a></li>
+                    <li><a href="about-us.html">About Us</a></li>
+                    <li><a href="courses.html">Courses</a></li>
+                    
+                    <li><a href="admin-dashboard.html">Dashboard</a></li>
+					<li><a class="btn btn-primary" href="logout.html">Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <section id="dashboard">
+        <div class="container">
+            <h2 class="text-center">Admin Dashboard</h2>
+            <div class="nav-tabs">
+                <a href="#overview" class="tab-link active" onclick="showTab(event, 'overview')">Overview</a>
+                <a href="#user-management" class="tab-link" onclick="showTab(event, 'user-management')">User Management</a>
+                <a href="#course-management" class="tab-link" onclick="showTab(event, 'course-management')">Course Management</a>
+                <a href="#reports" class="tab-link" onclick="showTab(event, 'reports')">Reports & Analytics</a>
+            </div>
+            
+            <div id="overview" class="dashboard-box tab-content">
+                <h3>Overview</h3>
+                <p>Total Users: 1500</p>
+                <p>Active Courses: 50</p>
+            </div>
+            
+            <div id="user-management" class="dashboard-box tab-content" style="display: none;">
+                <h3>User Management</h3>
+                <input type="text" class="form-control" placeholder="Search Users">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>John Doe</td>
+                            <td>Instructor</td>
+                            <td>
+                                <button class="btn btn-warning">Edit</button>
+                                <button class="btn btn-danger">Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="btn btn-success">Add User</button>
+            </div>
+            
+            <div id="course-management" class="dashboard-box tab-content" style="display: none;">
+                <h3>Course Management</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Instructor</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Intro to AI</td>
+                            <td>Jane Smith</td>
+                            <td>
+                                <button class="btn btn-warning">Edit</button>
+                                <button class="btn btn-danger">Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button class="btn btn-success">Create Course</button>
+            </div>
+            
+            <div id="reports" class="dashboard-box tab-content" style="display: none;">
+                <h3>Reports and Analytics</h3>
+                <canvas id="chart"></canvas>
+                <button class="btn btn-info">Download Report</button>
+            </div>
+        </div>
+    </section>
+    
+    
+    
+    <script src="js/jquery.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/chart.min.js"></script>
+    <script>
+        function showTab(event, tabId) {
+            event.preventDefault();
+            let tabs = document.querySelectorAll('.tab-content');
+            let links = document.querySelectorAll('.tab-link');
+            tabs.forEach(tab => tab.style.display = 'none');
+            links.forEach(link => link.classList.remove('active'));
+            document.getElementById(tabId).style.display = 'block';
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -1,69 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>LMS Authentication Test</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | LMS</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: white;
+        }
+        #login {
+            background-color: #f8f9fa;
+            padding: 50px 0;
+        }
+        .login-box {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+		footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 60px; /* Adjust height as needed */
+}
+
+
+    </style>
 </head>
 <body>
-    <h2>Register</h2>
-    <form id="registerForm">
-        <input type="text" id="name" placeholder="Name" required><br>
-        <input type="email" id="email" placeholder="Email" required><br>
-        <input type="password" id="password" placeholder="Password" required><br>
-        <select id="role">
-            <option value="Student">Student</option>
-            <option value="Instructor">Instructor</option>
-            <option value="Admin">Admin</option>
-        </select><br>
-        <input type="file" id="profileImage"><br>
-        <button type="submit">Register</button>
-    </form>
-
-    <h2>Login</h2>
-    <form id="loginForm">
-        <input type="email" id="loginEmail" placeholder="Email" required><br>
-        <input type="password" id="loginPassword" placeholder="Password" required><br>
-        <button type="submit">Login</button>
-    </form>
-
+    <nav class="navbar navbar-inverse" role="banner">
+            <div class="container">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a class="navbar-brand" href="home.html"><img src="images/logo.png" alt="OLMS Logo" width="200" height="74" ></a>
+                </div>
+            <div class="collapse navbar-collapse navbar-right">
+            <ul class="nav navbar-nav navbar-right">
+                <li><a href="home.html">Home</a></li>
+                <li><a href="about-us.html">About Us</a></li>
+                
+                <li><a href="register.html">Register</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <section id="login">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 col-md-offset-4 login-box">
+                    <h2 class="text-center">LOGIN</h2>
+                    <form action="#" method="post" onsubmit="return redirectUser()">
+                        <div class="form-group">
+                            <label for="username">Username:</label>
+                            <input type="text" id="username" class="form-control" placeholder="Enter your username" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="password">Password:</label>
+                            <input type="password" id="password" class="form-control" placeholder="•••••••" required>
+                        </div>
+						<div class="form-group">
+                            <label for="user-type">User Type:</label>
+                            <select id="user-type" class="form-control" required>
+                                <option value="admin">Admin</option>
+                                <option value="instructor">Instructor</option>
+                                <option value="student">Student</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">LOGIN</button>
+                        <div class="text-center mt-3">
+                            <a href="register.html" class="btn btn-link">Don't have an account? Register</a>
+                        </div>
+                        
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+    <footer class="bg-dark text-white text-center py-3">
+        <p>&copy; 2025 Online Learning Managnment System | All Rights Reserved</p>
+    </footer>
+    <script src="js/jquery.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/main.js"></script>
     <script>
-        document.getElementById("registerForm").onsubmit = async function(event) {
-        event.preventDefault();
-        let formData = new FormData();
-        formData.append("name", document.getElementById("name").value);
-        formData.append("email", document.getElementById("email").value);
-        formData.append("password", document.getElementById("password").value);
-        formData.append("role", document.getElementById("role").value);
-        formData.append("profileImage", document.getElementById("profileImage").files[0]);
-
-        let response = await fetch("/api/auth/register", {
-            method: "POST",
-            body: formData
-        });
-
-        let result = await response.json();
-        alert(JSON.stringify(result));
-    };
-
-    document.getElementById("loginForm").onsubmit = async function(event) {
-        event.preventDefault();
-        let response = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: document.getElementById("loginEmail").value,
-                password: document.getElementById("loginPassword").value
-            })
-        });
-
-        let result = await response.json();
-        if (result.token) {
-            localStorage.setItem("user_token", result.token);
-            localStorage.setItem("user_name", result.user.name);
-            window.location.href = "/index.html";
-        } else {
-            alert("Login failed: " + result.message);
+        function redirectUser() {
+            const userType = document.getElementById("user-type").value;
+            if (userType === "admin") {
+                window.location.href = "admin-dashboard.html";
+            } else if (userType === "instructor") {
+                window.location.href = "instructor-dashboard.html";
+            } else {
+                window.location.href = "student-dashboard.html";
+            }
+            return false;
         }
-    };
     </script>
 </body>
 </html>
