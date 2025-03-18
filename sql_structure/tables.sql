@@ -31,6 +31,16 @@ CREATE TABLE Courses (
     FOREIGN KEY (prereq_course_id) REFERENCES Courses(course_id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS CourseMaterials (
+    material_id INT PRIMARY KEY AUTO_INCREMENT,
+    course_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE
+);
+
 -- Create Assignments table
 CREATE TABLE Assignments (
     assignment_id INT PRIMARY KEY AUTO_INCREMENT,
