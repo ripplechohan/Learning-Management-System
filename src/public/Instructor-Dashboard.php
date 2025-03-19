@@ -12,6 +12,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'Instructor') {
 $instructor_id = $_SESSION['user_id'];
 $instructor_name = $_SESSION['name'];
 
+$success_message = '';
+$error_message = '';
+
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
+
+if (isset($_SESSION['error_message'])) {
+    $error_message = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
+
 // Fetch all courses (in a real scenario, you would filter by instructor)
 $stmt = $conn->prepare("
     SELECT course_id, title, description, category, skill_level, start_date, end_date, is_active 
@@ -240,7 +253,17 @@ $student_performance = $stmt->get_result();
         <div class="container">
             <h2 class="text-center">Instructor Dashboard</h2>
             <p class="text-center welcome-message">Welcome, <?php echo htmlspecialchars($instructor_name); ?>!</p>
-            
+            <?php if(!empty($success_message)): ?>
+    <div class="alert alert-success">
+        <?php echo $success_message; ?>
+    </div>
+<?php endif; ?>
+
+<?php if(!empty($error_message)): ?>
+    <div class="alert alert-danger">
+        <?php echo $error_message; ?>
+    </div>
+<?php endif; ?>
             <!-- Tabs Navigation -->
             <div class="nav-tabs">
                 <a href="#overview" class="tab-link active" onclick="showTab(event, 'overview')">Overview</a>
@@ -305,7 +328,7 @@ $student_performance = $stmt->get_result();
                                     <td><?php echo $course['end_date'] ? htmlspecialchars(date('d/m/Y', strtotime($course['end_date']))) : 'Not set'; ?></td>
                                     <td><?php echo $course['is_active'] ? '<span class="text-success">Active</span>' : '<span class="text-danger">Inactive</span>'; ?></td>
                                     <td>
-                                        <button type="button" class="btn btn-warning btn-sm" onclick="editCourse(<?php echo $course['course_id']; ?>)">Edit</button>
+                                    <a href="edit_course.php?id=<?php echo $course['course_id']; ?>" class="btn btn-warning btn-sm">Edit</a>
                                         <button class="btn btn-danger btn-sm" onclick="confirmDelete(<?php echo $course['course_id']; ?>)">Delete</button>
                                         <a href="#assignments" class="btn btn-info btn-sm" onclick="showTab(event, 'assignments'); highlightCourse(<?php echo $course['course_id']; ?>)">
                                             Manage Assignments
@@ -654,10 +677,8 @@ $student_performance = $stmt->get_result();
         }
         
         function editCourse(courseId) {
-            // This would load course data and open the modal
-            alert("Edit course " + courseId + " (would open modal with course data)");
-        }
-        
+    window.location.href = "edit_course.php?id=" + courseId;
+}
         function editAssignment(assignmentId) {
             // This would load assignment data and open the modal
             alert("Edit assignment " + assignmentId + " (would open modal with assignment data)");
