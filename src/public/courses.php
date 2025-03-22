@@ -57,9 +57,7 @@ if ($logged_in && $user_role == 'Student') {
         body {
             background-color: white;
         }
-        .container {
-            margin-top: 50px;
-        }
+        
         h1 {
             text-align: center;
             font-weight: bold;
@@ -193,7 +191,7 @@ if ($logged_in && $user_role == 'Student') {
 
     <section>
         <div class="container">
-            <h1>Available Courses</h1>
+           
             
             <div class="row">
                 <div class="col-md-3">
@@ -349,11 +347,5 @@ if ($logged_in && $user_role == 'Student') {
             $("#noCoursesMessage").remove();
         }
     </script>
-</body>
-</html>
-
-    <script src="js/jquery.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-    <script src="js/main.js"></script>
 </body>
 </html>
