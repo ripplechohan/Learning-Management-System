@@ -61,11 +61,12 @@ $course_assignments = $stmt->get_result();
 
 // Fetch upcoming quiz deadlines
 $stmt = $conn->prepare("
-    SELECT q.quiz_id, q.title, q.created_at, c.title as course_title, c.course_id 
-    FROM Quizzes q
-    JOIN Courses c ON q.course_id = c.course_id
-    ORDER BY q.created_at DESC
-    LIMIT 5
+    SELECT c.course_id, c.title as course_title, 
+           q.quiz_id, q.title as quiz_title, q.is_automated_grading, 
+           q.topic, q.created_at, q.is_published
+    FROM Courses c
+    LEFT JOIN Quizzes q ON c.course_id = q.course_id
+    ORDER BY c.title, q.created_at
 ");
 $stmt->execute();
 $upcoming_quizzes = $stmt->get_result();
@@ -95,11 +96,11 @@ while ($row = $course_assignments->fetch_assoc()) {
     }
 }
 
-// Fetch all quizzes grouped by course for the quizzes tab
+// Fetch all quizzes grouped by course for the quizzes tab - WITH is_published field
 $stmt = $conn->prepare("
     SELECT c.course_id, c.title as course_title, 
            q.quiz_id, q.title as quiz_title, q.is_automated_grading, 
-           q.topic, q.created_at
+           q.topic, q.created_at, q.is_published
     FROM Courses c
     LEFT JOIN Quizzes q ON c.course_id = q.course_id
     ORDER BY c.title, q.created_at
@@ -126,7 +127,8 @@ while ($row = $course_quizzes->fetch_assoc()) {
             'title' => $row['quiz_title'],
             'automated_grading' => $row['is_automated_grading'],
             'topic' => $row['topic'],
-            'created_at' => $row['created_at']
+            'created_at' => $row['created_at'],
+            'is_published' => $row['is_published']
         ];
     }
 }
@@ -350,7 +352,7 @@ $student_performance = $stmt->get_result();
                     <?php if ($upcoming_quizzes->num_rows > 0): ?>
                         <?php while($quiz = $upcoming_quizzes->fetch_assoc()): ?>
                             <li class="list-group-item">
-                                <?php echo htmlspecialchars($quiz['title']); ?> 
+                                <?php echo htmlspecialchars($quiz['quiz_title']); ?> 
                                 (<?php echo htmlspecialchars($quiz['course_title']); ?>) - 
                                 Created on <?php echo date('d/m/Y', strtotime($quiz['created_at'])); ?>
                             </li>
@@ -469,63 +471,84 @@ $student_performance = $stmt->get_result();
                 <?php endif; ?>
             </div>
 
-            <!-- Quizzes Section -->
             <div id="quizzes" class="dashboard-box tab-content" style="display:none;">
-                <h3>Quizzes by Course</h3>
-                
-                <?php if (count($quizzes_by_course) > 0): ?>
-                    <?php foreach ($quizzes_by_course as $course_id => $course_data): ?>
-                        <div class="course-card" id="quiz-course-<?php echo $course_id; ?>">
-                            <div class="course-header" onclick="toggleQuizCourseContent(<?php echo $course_id; ?>)">
-                                <h4>
-                                    <i class="fa fa-chevron-right" id="quiz-course-icon-<?php echo $course_id; ?>"></i>
-                                    <?php echo htmlspecialchars($course_data['course_title']); ?>
-                                    <span class="badge"><?php echo count($course_data['quizzes']); ?> quizzes</span>
-                                </h4>
-                            </div>
-                            <div class="course-content" id="quiz-course-content-<?php echo $course_id; ?>">
-                                <button type="button" class="btn btn-success btn-sm" onclick="createQuiz(<?php echo $course_id; ?>)">
-                                    Add New Quiz
-                                </button>
-                                
-                                <?php if (count($course_data['quizzes']) > 0): ?>
-                                    <table class="table">
-                                        <thead>
-                                            <tr>
-                                                <th>Title</th>
-                                                <th>Topic</th>
-                                                <th>Created Date</th>
-                                                <th>Automated Grading</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($course_data['quizzes'] as $quiz): ?>
-                                                <tr>
-                                                    <td><?php echo htmlspecialchars($quiz['title']); ?></td>
-                                                    <td><?php echo htmlspecialchars($quiz['topic']); ?></td>
-                                                    <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($quiz['created_at']))); ?></td>
-                                                    <td><?php echo $quiz['automated_grading'] ? '<span class="text-success">Enabled</span>' : '<span class="text-danger">Disabled</span>'; ?></td>
-                                                    <td>
-                                                        <button type="button" class="btn btn-warning btn-sm" onclick="editQuiz(<?php echo $quiz['id']; ?>)">Edit</button>
-                                                        <button class="btn btn-danger btn-sm" onclick="confirmDeleteQuiz(<?php echo $quiz['id']; ?>)">Delete</button>
-                                                        <a href="manage_questions.php?id=<?php echo $quiz['id']; ?>" class="btn btn-primary btn-sm">Manage Questions</a>
-                                                        <a href="grade_quiz.php?id=<?php echo $quiz['id']; ?>" class="btn btn-info btn-sm">Grade</a>
-                                                    </td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                <?php else: ?>
-                                    <p class="text-center">No quizzes for this course yet.</p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <p class="text-center">No courses available. Please create a course first.</p>
-                <?php endif; ?>
+    <h3>Quizzes by Course</h3>
+    
+    <?php if (count($quizzes_by_course) > 0): ?>
+        <?php foreach ($quizzes_by_course as $course_id => $course_data): ?>
+            <div class="course-card" id="quiz-course-<?php echo $course_id; ?>">
+                <div class="course-header" onclick="toggleQuizCourseContent(<?php echo $course_id; ?>)">
+                    <h4>
+                        <i class="fa fa-chevron-right" id="quiz-course-icon-<?php echo $course_id; ?>"></i>
+                        <?php echo htmlspecialchars($course_data['course_title']); ?>
+                        <span class="badge"><?php echo count($course_data['quizzes']); ?> quizzes</span>
+                    </h4>
+                </div>
+                <div class="course-content" id="quiz-course-content-<?php echo $course_id; ?>">
+                    <button type="button" class="btn btn-success btn-sm" onclick="createQuiz(<?php echo $course_id; ?>)">
+                        Add New Quiz
+                    </button>
+                    
+                    <?php if (count($course_data['quizzes']) > 0): ?>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Topic</th>
+                                    <th>Created Date</th>
+                                    <th>Automated Grading</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($course_data['quizzes'] as $quiz): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($quiz['title']); ?></td>
+                                        <td><?php echo htmlspecialchars($quiz['topic']); ?></td>
+                                        <td><?php echo htmlspecialchars(date('d/m/Y', strtotime($quiz['created_at']))); ?></td>
+                                        <td><?php echo $quiz['automated_grading'] ? '<span class="text-success">Enabled</span>' : '<span class="text-danger">Disabled</span>'; ?></td>
+                                        <td>
+                                            <?php if (isset($quiz['is_published']) && $quiz['is_published']): ?>
+                                                <span class="label label-success">Published</span>
+                                            <?php else: ?>
+                                                <span class="label label-warning">Draft</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+    <a href="manage_questions.php?id=<?php echo $quiz['id']; ?>" class="btn btn-primary btn-sm" onclick="setActiveTab('quizzes')">
+        <i class="fa fa-list"></i> Manage Questions
+    </a>
+    
+    <?php if (isset($quiz['is_published']) && $quiz['is_published'] == 1): ?>
+        <a href="unpublish_quiz.php?id=<?php echo $quiz['id']; ?>" class="btn btn-warning btn-sm"
+           onclick="return confirm('Are you sure you want to unpublish this quiz? Students will no longer be able to access it.')">
+            <i class="fa fa-eye-slash"></i> Unpublish
+        </a>
+    <?php else: ?>
+        <a href="post_quiz.php?id=<?php echo $quiz['id']; ?>" class="btn btn-success btn-sm">
+            <i class="fa fa-paper-plane"></i> Publish
+        </a>
+    <?php endif; ?>
+    
+    <button class="btn btn-danger btn-sm" onclick="confirmDeleteQuiz(<?php echo $quiz['id']; ?>)">
+        <i class="fa fa-trash"></i> Delete
+    </button>
+</td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <p class="text-center">No quizzes for this course yet.</p>
+                    <?php endif; ?>
+                </div>
             </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <p class="text-center">No courses available. Please create a course first.</p>
+    <?php endif; ?>
+</div>
 
             <!-- Student Performance Section -->
             <div id="students" class="dashboard-box tab-content" style="display:none;">
@@ -746,6 +769,11 @@ $student_performance = $stmt->get_result();
     <script src="js/bootstrap.min.js"></script>
     <script src="js/chart.min.js"></script>
     <script>
+        // Function to set which tab should be active
+        function setActiveTab(tabName) {
+            localStorage.setItem('activeTab', tabName);
+        }
+        
         function showTab(event, tabId) {
             event.preventDefault();
             let tabs = document.querySelectorAll('.tab-content');
@@ -753,7 +781,17 @@ $student_performance = $stmt->get_result();
             tabs.forEach(tab => tab.style.display = 'none');
             links.forEach(link => link.classList.remove('active'));
             document.getElementById(tabId).style.display = 'block';
-            event.target.classList.add('active');
+            
+            // Find the correct link and add the active class
+            const activeLink = document.querySelector(`.tab-link[href="#${tabId}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            } else {
+                event.target.classList.add('active');
+            }
+            
+            // Store the active tab in localStorage
+            localStorage.setItem('activeTab', tabId);
         }
 
         function toggleCourseContent(courseId) {
@@ -977,6 +1015,26 @@ $student_performance = $stmt->get_result();
                     }
                 }
             });
+            
+            // When the page loads, check if there's a stored active tab or URL hash
+            const hash = window.location.hash.substring(1);
+            const storedTab = localStorage.getItem('activeTab');
+            
+            // Priority: URL hash > stored tab > default (overview)
+            const tabToShow = hash || storedTab || 'overview';
+            
+            // Find the tab link and trigger a click to show the tab
+            const tabLink = document.querySelector('.tab-link[href="#' + tabToShow + '"]');
+            if (tabLink) {
+                // Create a synthetic event
+                const event = {
+                    preventDefault: function() {},
+                    target: tabLink
+                };
+                
+                // Call the showTab function
+                showTab(event, tabToShow);
+            }
         });
     </script>
 </body>
