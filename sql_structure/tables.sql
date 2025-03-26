@@ -174,3 +174,6 @@ MODIFY COLUMN question_format ENUM('MCQ', 'True/False') NOT NULL;
 
 ALTER TABLE Quizzes 
 ADD COLUMN is_published BOOLEAN DEFAULT 0;
+
+ALTER TABLE Quizzes 
+ADD COLUMN due_date DATE NULL AFTER topic;
