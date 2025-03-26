@@ -171,3 +171,6 @@ CREATE TABLE IF NOT EXISTS StudentQuizAnswers (
 -- but adding an enumeration constraint to question_format
 ALTER TABLE Questions 
 MODIFY COLUMN question_format ENUM('MCQ', 'True/False') NOT NULL;
+
+ALTER TABLE Quizzes 
+ADD COLUMN is_published BOOLEAN DEFAULT 0;
