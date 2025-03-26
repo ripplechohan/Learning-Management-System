@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate input
     if (empty($title) || empty($topic) || empty($course_id)) {
         $_SESSION['error_message'] = "All fields are required";
-        header("Location: instructor_dashboard.php#quizzes");
+        header("Location: instructor-dashboard.php#quizzes");
         exit();
     }
     
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($result->num_rows === 0) {
         $_SESSION['error_message'] = "Invalid course selected";
-        header("Location: instructor_dashboard.php#quizzes");
+        header("Location: instructor-dashboard.php#quizzes");
         exit();
     }
     
@@ -53,12 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     } else {
         $_SESSION['error_message'] = "Error creating quiz: " . $conn->error;
-        header("Location: instructor_dashboard.php#quizzes");
+        header("Location: instructor-dashboard.php#quizzes");
         exit();
     }
 } else {
     // If accessed directly without form submission
-    header("Location: instructor_dashboard.php");
+    header("Location: instructor-dashboard.php");
     exit();
 }
 ?>
