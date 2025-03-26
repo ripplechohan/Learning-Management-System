@@ -145,9 +145,10 @@ $stmt->execute();
 $pending_questions = $stmt->get_result();
 $question_count = $pending_questions->num_rows;
 
-// Get student performance data
+// Get student performance data by course
 $stmt = $conn->prepare("
-    SELECT u.name, c.title as course_title, e.progress_percentage,
+    SELECT c.course_id, c.title as course_title, u.user_id as student_id, u.name as student_name, 
+           e.progress_percentage,
     CASE 
         WHEN e.progress_percentage >= 90 THEN 'A'
         WHEN e.progress_percentage >= 80 THEN 'B'
@@ -158,10 +159,130 @@ $stmt = $conn->prepare("
     FROM Enrollments e
     JOIN Users u ON e.student_id = u.user_id
     JOIN Courses c ON e.course_id = c.course_id
-    LIMIT 10
+    ORDER BY c.title, u.name
 ");
 $stmt->execute();
 $student_performance = $stmt->get_result();
+
+// Structure student performance data by course for easier navigation
+$performance_by_course = [];
+while ($student = $student_performance->fetch_assoc()) {
+    $course_id = $student['course_id'];
+    $course_title = $student['course_title'];
+    
+    if (!isset($performance_by_course[$course_id])) {
+        $performance_by_course[$course_id] = [
+            'course_title' => $course_title,
+            'students' => []
+        ];
+    }
+    
+    $performance_by_course[$course_id]['students'][] = [
+        'id' => $student['student_id'],
+        'name' => $student['student_name'],
+        'progress' => $student['progress_percentage'],
+        'grade' => $student['grade']
+    ];
+}
+
+// Fetch assignment submissions
+$stmt = $conn->prepare("
+    SELECT s.submission_id, a.assignment_id, a.title as assignment_title, 
+           c.course_id, c.title as course_title,
+           u.user_id as student_id, u.name as student_name,
+           s.date_submitted, s.grade
+    FROM Submissions s
+    JOIN Assignments a ON s.assignment_id = a.assignment_id
+    JOIN Courses c ON a.course_id = c.course_id
+    JOIN Users u ON s.student_id = u.user_id
+    ORDER BY c.title, a.title, u.name
+");
+$stmt->execute();
+$assignment_submissions = $stmt->get_result();
+
+// Group assignment submissions by course and assignment
+$submissions_by_course = [];
+while ($submission = $assignment_submissions->fetch_assoc()) {
+    $course_id = $submission['course_id'];
+    $course_title = $submission['course_title'];
+    $assignment_id = $submission['assignment_id'];
+    $assignment_title = $submission['assignment_title'];
+    
+    if (!isset($submissions_by_course[$course_id])) {
+        $submissions_by_course[$course_id] = [
+            'course_title' => $course_title,
+            'assignments' => []
+        ];
+    }
+    
+    if (!isset($submissions_by_course[$course_id]['assignments'][$assignment_id])) {
+        $submissions_by_course[$course_id]['assignments'][$assignment_id] = [
+            'title' => $assignment_title,
+            'submissions' => []
+        ];
+    }
+    
+    $submissions_by_course[$course_id]['assignments'][$assignment_id]['submissions'][] = [
+        'id' => $submission['submission_id'],
+        'student_id' => $submission['student_id'],
+        'student_name' => $submission['student_name'],
+        'date_submitted' => $submission['date_submitted'],
+        'grade' => $submission['grade'],
+        'feedback' => $submission['feedback']
+    ];
+}
+
+// Fetch quiz results
+$stmt = $conn->prepare("
+    SELECT sq.student_quiz_id, q.quiz_id, q.title as quiz_title, 
+           c.course_id, c.title as course_title,
+           u.user_id as student_id, u.name as student_name,
+           sq.score, sq.total_questions, sq.completed_at
+    FROM StudentQuizzes sq
+    JOIN Quizzes q ON sq.quiz_id = q.quiz_id
+    JOIN Courses c ON q.course_id = c.course_id
+    JOIN Users u ON sq.student_id = u.user_id
+    WHERE sq.is_completed = 1
+    ORDER BY c.title, q.title, u.name
+");
+$stmt->execute();
+$quiz_results = $stmt->get_result();
+
+// Group quiz results by course and quiz
+$results_by_course = [];
+while ($result = $quiz_results->fetch_assoc()) {
+    $course_id = $result['course_id'];
+    $course_title = $result['course_title'];
+    $quiz_id = $result['quiz_id'];
+    $quiz_title = $result['quiz_title'];
+    
+    if (!isset($results_by_course[$course_id])) {
+        $results_by_course[$course_id] = [
+            'course_title' => $course_title,
+            'quizzes' => []
+        ];
+    }
+    
+    if (!isset($results_by_course[$course_id]['quizzes'][$quiz_id])) {
+        $results_by_course[$course_id]['quizzes'][$quiz_id] = [
+            'title' => $quiz_title,
+            'results' => []
+        ];
+    }
+    
+    $percentage = ($result['total_questions'] > 0) ? 
+        round(($result['score'] / $result['total_questions']) * 100) : 0;
+    
+    $results_by_course[$course_id]['quizzes'][$quiz_id]['results'][] = [
+        'id' => $result['student_quiz_id'],
+        'student_id' => $result['student_id'],
+        'student_name' => $result['student_name'],
+        'score' => $result['score'],
+        'total_questions' => $result['total_questions'],
+        'percentage' => $percentage,
+        'completed_at' => $result['completed_at']
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -270,6 +391,58 @@ $student_performance = $stmt->get_result();
         .modal-body {
             max-height: calc(100vh - 200px);
             overflow-y: auto;
+        }
+        .student-performance-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .student-performance-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .student-performance-content {
+            padding: 15px;
+            display: none;
+        }
+        .assessment-card {
+            border: 1px solid #eee;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            padding: 10px;
+        }
+        .assessment-header {
+            background-color: #f9f9f9;
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .assessment-content {
+            padding: 10px;
+            display: none;
+        }
+        .grade-a {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .grade-b {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        .grade-c {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .grade-d {
+            color: #fd7e14;
+            font-weight: bold;
+        }
+        .grade-f {
+            color: #dc3545;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -550,39 +723,211 @@ $student_performance = $stmt->get_result();
     <?php endif; ?>
 </div>
 
-            <!-- Student Performance Section -->
+            <!-- Student Performance Section (Modified to include quiz/assignment results) -->
             <div id="students" class="dashboard-box tab-content" style="display:none;">
-                <h3>Student Performance</h3>
-                <input type="text" class="form-control mb-3" id="studentSearch" onkeyup="searchStudents()" placeholder="Search Students">
-                <table class="table" id="studentTable">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Course</th>
-                            <th>Progress</th>
-                            <th>Grade</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($student_performance->num_rows > 0): ?>
-                            <?php while($student = $student_performance->fetch_assoc()): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($student['name']); ?></td>
-                                    <td><?php echo htmlspecialchars($student['course_title']); ?></td>
-                                    <td><?php echo htmlspecialchars($student['progress_percentage']); ?>%</td>
-                                    <td><?php echo htmlspecialchars($student['grade']); ?></td>
-                                </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="4" class="text-center">No student data available</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                <h3>Student Performance by Course</h3>
+                <input type="text" class="form-control mb-3" id="studentSearch" onkeyup="searchStudents()" placeholder="Search Students or Courses">
+                
+                <?php if (count($performance_by_course) > 0): ?>
+                    <?php foreach ($performance_by_course as $course_id => $course_data): ?>
+                        <div class="student-performance-card" id="performance-course-<?php echo $course_id; ?>">
+                            <div class="student-performance-header" onclick="togglePerformanceContent(<?php echo $course_id; ?>)">
+                                <h4>
+                                    <i class="fa fa-chevron-right" id="performance-icon-<?php echo $course_id; ?>"></i>
+                                    <?php echo htmlspecialchars($course_data['course_title']); ?>
+                                    <span class="badge"><?php echo count($course_data['students']); ?> students</span>
+                                </h4>
+                            </div>
+                            <div class="student-performance-content" id="performance-content-<?php echo $course_id; ?>">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student Name</th>
+                                            <th>Overall Progress</th>
+                                            <th>Grade</th>
+                                            <th>Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($course_data['students'] as $student): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($student['name']); ?></td>
+                                                <td><?php echo htmlspecialchars($student['progress']); ?>%</td>
+                                                <td>
+                                                    <?php 
+                                                        $grade_class = '';
+                                                        switch($student['grade']) {
+                                                            case 'A': $grade_class = 'grade-a'; break;
+                                                            case 'B': $grade_class = 'grade-b'; break;
+                                                            case 'C': $grade_class = 'grade-c'; break;
+                                                            case 'D': $grade_class = 'grade-d'; break;
+                                                            case 'F': $grade_class = 'grade-f'; break;
+                                                        }
+                                                    ?>
+                                                    <span class="<?php echo $grade_class; ?>"><?php echo htmlspecialchars($student['grade']); ?></span>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-info btn-sm" onclick="toggleStudentDetails(<?php echo $course_id; ?>, <?php echo $student['id']; ?>)">
+                                                        View Details
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <!-- Student Details Section - Hidden by Default -->
+                                            <tr id="student-details-<?php echo $course_id; ?>-<?php echo $student['id']; ?>" style="display:none;">
+                                                <td colspan="4">
+                                                    <div class="student-details-content">
+                                                        <h5>Performance Details for <?php echo htmlspecialchars($student['name']); ?></h5>
+                                                        
+                                                        <!-- Assignment Submissions -->
+                                                        <div class="assessment-card">
+                                                            <div class="assessment-header" onclick="toggleAssessmentContent('assignments', <?php echo $course_id; ?>, <?php echo $student['id']; ?>)">
+                                                                <h6>
+                                                                    <i class="fa fa-chevron-right" id="assignments-icon-<?php echo $course_id; ?>-<?php echo $student['id']; ?>"></i>
+                                                                    Assignment Submissions
+                                                                </h6>
+                                                            </div>
+                                                            <div class="assessment-content" id="assignments-content-<?php echo $course_id; ?>-<?php echo $student['id']; ?>">
+                                                                <?php if (isset($submissions_by_course[$course_id])): ?>
+                                                                    <table class="table table-striped">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Assignment</th>
+                                                                                <th>Submission Date</th>
+                                                                                <th>Grade</th>
+                                                                                <th>Actions</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            <?php 
+                                                                            $has_submissions = false;
+                                                                            foreach ($submissions_by_course[$course_id]['assignments'] as $assignment_id => $assignment_data): 
+                                                                                foreach ($assignment_data['submissions'] as $submission):
+                                                                                    if ($submission['student_id'] == $student['id']):
+                                                                                        $has_submissions = true;
+                                                                            ?>
+                                                                                <tr>
+                                                                                    <td><?php echo htmlspecialchars($assignment_data['title']); ?></td>
+                                                                                    <td><?php echo date('d/m/Y', strtotime($submission['date_submitted'])); ?></td>
+                                                                                    <td>
+                                                                                        <?php if ($submission['grade'] !== null): ?>
+                                                                                            <?php 
+                                                                                                $grade_class = '';
+                                                                                                if ($submission['grade'] >= 90) $grade_class = 'grade-a';
+                                                                                                else if ($submission['grade'] >= 80) $grade_class = 'grade-b';
+                                                                                                else if ($submission['grade'] >= 70) $grade_class = 'grade-c';
+                                                                                                else if ($submission['grade'] >= 60) $grade_class = 'grade-d';
+                                                                                                else $grade_class = 'grade-f';
+                                                                                            ?>
+                                                                                            <span class="<?php echo $grade_class; ?>"><?php echo $submission['grade']; ?>%</span>
+                                                                                        <?php else: ?>
+                                                                                            <span class="text-warning">Not Graded</span>
+                                                                                        <?php endif; ?>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <a href="view_submission.php?id=<?php echo $submission['id']; ?>" class="btn btn-sm btn-primary">View</a>
+                                                                                        <?php if ($submission['grade'] === null): ?>
+                                                                                            <a href="grade_submission.php?id=<?php echo $submission['id']; ?>" class="btn btn-sm btn-success">Grade</a>
+                                                                                        <?php endif; ?>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            <?php 
+                                                                                    endif;
+                                                                                endforeach;
+                                                                            endforeach; 
+                                                                            
+                                                                            if (!$has_submissions):
+                                                                            ?>
+                                                                                <tr>
+                                                                                    <td colspan="4" class="text-center">No assignment submissions found for this student.</td>
+                                                                                </tr>
+                                                                            <?php endif; ?>
+                                                                        </tbody>
+                                                                    </table>
+                                                                <?php else: ?>
+                                                                    <p class="text-center">No assignments are available for this course.</p>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- Quiz Results -->
+                                                        <div class="assessment-card">
+                                                            <div class="assessment-header" onclick="toggleAssessmentContent('quizzes', <?php echo $course_id; ?>, <?php echo $student['id']; ?>)">
+                                                                <h6>
+                                                                    <i class="fa fa-chevron-right" id="quizzes-icon-<?php echo $course_id; ?>-<?php echo $student['id']; ?>"></i>
+                                                                    Quiz Results
+                                                                </h6>
+                                                            </div>
+                                                            <div class="assessment-content" id="quizzes-content-<?php echo $course_id; ?>-<?php echo $student['id']; ?>">
+                                                                <?php if (isset($results_by_course[$course_id])): ?>
+                                                                    <table class="table table-striped">
+                                                                        <thead>
+                                                                            <tr>
+                                                                                <th>Quiz</th>
+                                                                                <th>Completion Date</th>
+                                                                                <th>Score</th>
+                                                                                <th>Actions</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            <?php 
+                                                                            $has_results = false;
+                                                                            foreach ($results_by_course[$course_id]['quizzes'] as $quiz_id => $quiz_data): 
+                                                                                foreach ($quiz_data['results'] as $result):
+                                                                                    if ($result['student_id'] == $student['id']):
+                                                                                        $has_results = true;
+                                                                            ?>
+                                                                                <tr>
+                                                                                    <td><?php echo htmlspecialchars($quiz_data['title']); ?></td>
+                                                                                    <td><?php echo date('d/m/Y', strtotime($result['completed_at'])); ?></td>
+                                                                                    <td>
+                                                                                        <?php 
+                                                                                            $grade_class = '';
+                                                                                            if ($result['percentage'] >= 90) $grade_class = 'grade-a';
+                                                                                            else if ($result['percentage'] >= 80) $grade_class = 'grade-b';
+                                                                                            else if ($result['percentage'] >= 70) $grade_class = 'grade-c';
+                                                                                            else if ($result['percentage'] >= 60) $grade_class = 'grade-d';
+                                                                                            else $grade_class = 'grade-f';
+                                                                                        ?>
+                                                                                        <span class="<?php echo $grade_class; ?>">
+                                                                                            <?php echo $result['score']; ?>/<?php echo $result['total_questions']; ?> 
+                                                                                            (<?php echo $result['percentage']; ?>%)
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td>
+                                                                                        <a href="view_quiz_result.php?id=<?php echo $result['id']; ?>" class="btn btn-sm btn-primary">View Details</a>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            <?php 
+                                                                                    endif;
+                                                                                endforeach;
+                                                                            endforeach; 
+                                                                            
+                                                                            if (!$has_results):
+                                                                            ?>
+                                                                                <tr>
+                                                                                    <td colspan="4" class="text-center">No quiz results found for this student.</td>
+                                                                                </tr>
+                                                                            <?php endif; ?>
+                                                                        </tbody>
+                                                                    </table>
+                                                                <?php else: ?>
+                                                                    <p class="text-center">No quizzes are available for this course.</p>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p class="text-center">No student performance data available yet.</p>
+                <?php endif; ?>
             </div>
-
-
 
             <!-- Reports and Analytics Section -->
             <div id="reports" class="dashboard-box tab-content" style="display:none;">
@@ -820,6 +1165,46 @@ $student_performance = $stmt->get_result();
             }
         }
         
+        function togglePerformanceContent(courseId) {
+            const content = document.getElementById('performance-content-' + courseId);
+            const icon = document.getElementById('performance-icon-' + courseId);
+            
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                icon.className = 'fa fa-chevron-right';
+            } else {
+                content.style.display = 'block';
+                icon.className = 'fa fa-chevron-down';
+            }
+        }
+        
+        function toggleStudentDetails(courseId, studentId) {
+            const details = document.getElementById('student-details-' + courseId + '-' + studentId);
+            
+            if (details.style.display === 'table-row') {
+                details.style.display = 'none';
+            } else {
+                // Hide all other details first
+                document.querySelectorAll('[id^="student-details-"]').forEach(el => {
+                    el.style.display = 'none';
+                });
+                details.style.display = 'table-row';
+            }
+        }
+        
+        function toggleAssessmentContent(type, courseId, studentId) {
+            const content = document.getElementById(type + '-content-' + courseId + '-' + studentId);
+            const icon = document.getElementById(type + '-icon-' + courseId + '-' + studentId);
+            
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                icon.className = 'fa fa-chevron-right';
+            } else {
+                content.style.display = 'block';
+                icon.className = 'fa fa-chevron-down';
+            }
+        }
+        
         function highlightCourse(courseId) {
             // Check which tab we're in and highlight accordingly
             if (document.getElementById('assignments').style.display === 'block') {
@@ -948,22 +1333,44 @@ $student_performance = $stmt->get_result();
         function searchStudents() {
             let input = document.getElementById("studentSearch");
             let filter = input.value.toUpperCase();
-            let table = document.getElementById("studentTable");
-            let tr = table.getElementsByTagName("tr");
+            let courseCards = document.querySelectorAll('.student-performance-card');
 
-            for (let i = 1; i < tr.length; i++) { // Start from 1 to skip header row
-                let name = tr[i].getElementsByTagName("td")[0];
-                let course = tr[i].getElementsByTagName("td")[1];
-                if (name || course) {
-                    let txtName = name.textContent || name.innerText;
-                    let txtCourse = course.textContent || course.innerText;
-                    if (txtName.toUpperCase().indexOf(filter) > -1 || txtCourse.toUpperCase().indexOf(filter) > -1) {
-                        tr[i].style.display = "";
-                    } else {
-                        tr[i].style.display = "none";
-                    }
+            courseCards.forEach(card => {
+                let courseName = card.querySelector('.student-performance-header h4').textContent.trim();
+                let rows = card.querySelectorAll('tbody tr');
+                let studentMatched = false;
+                
+                // Check for course name match first
+                if (courseName.toUpperCase().indexOf(filter) > -1) {
+                    card.style.display = "";
+                    // Make all student rows visible in this matching course
+                    rows.forEach(row => {
+                        if (!row.id.startsWith('student-details-')) {
+                            row.style.display = "";
+                        }
+                    });
+                    return;
                 }
-            }
+                
+                // If course name doesn't match, check individual students
+                rows.forEach(row => {
+                    if (row.id.startsWith('student-details-')) {
+                        // Skip the detail rows
+                        return;
+                    }
+                    
+                    let studentName = row.querySelector('td:first-child').textContent;
+                    if (studentName.toUpperCase().indexOf(filter) > -1) {
+                        row.style.display = "";
+                        studentMatched = true;
+                    } else {
+                        row.style.display = "none";
+                    }
+                });
+                
+                // Show/hide the course card based on student matches
+                card.style.display = studentMatched ? "" : "none";
+            });
         }
 
         function downloadReport() {
