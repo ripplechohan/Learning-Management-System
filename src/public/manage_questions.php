@@ -28,62 +28,29 @@ if (isset($_SESSION['error_message'])) {
 // Check if quiz_id is provided
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     $_SESSION['error_message'] = "Invalid quiz ID";
-    header("Location: instructor_dashboard.php");
+    header("Location: instructor-dashboard.php");
     exit();
 }
 
 $quiz_id = $_GET['id'];
 
-// Get quiz information
-$stmt = $conn->prepare("
-    SELECT q.quiz_id, q.title, q.topic, q.is_automated_grading, c.title as course_title, c.course_id
-    FROM Quizzes q
-    JOIN Courses c ON q.course_id = c.course_id
-    WHERE q.quiz_id = ?
-");
-$stmt->bind_param("i", $quiz_id);
-$stmt->execute();
-$quiz = $stmt->get_result()->fetch_assoc();
-
-if (!$quiz) {
-    $_SESSION['error_message'] = "Quiz not found";
-    header("Location: instructor_dashboard.php");
-    exit();
-}
-
-// Get quiz questions
-$stmt = $conn->prepare("
-    SELECT question_id, text, question_format, answer
-    FROM Questions
-    WHERE quiz_id = ?
-    ORDER BY question_id
-");
-$stmt->bind_param("i", $quiz_id);
-$stmt->execute();
-$questions_result = $stmt->get_result();
-
-// Add new question if form submitted
+// Process the form submission first
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_question'])) {
     $question_text = trim($_POST['question_text']);
     $question_format = $_POST['question_format'];
     
-    // Process answer based on format
     if ($question_format === 'MCQ') {
-        // For MCQs, we need to store options and the correct answer
         $option_a = trim($_POST['option_a']);
         $option_b = trim($_POST['option_b']);
         $option_c = trim($_POST['option_c']);
         $option_d = trim($_POST['option_d']);
         $correct_option = $_POST['correct_option'];
         
-        // Check if options are provided
         if (empty($option_a) || empty($option_b)) {
             $error_message = "At least options A and B are required for MCQ";
         } else {
-            // Correct option letter (A, B, C, D)
             $answer = $correct_option;
             
-            // Append options to question text for storage
             $options_text = "\nA. " . $option_a;
             $options_text .= "\nB. " . $option_b;
             
@@ -95,30 +62,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_question'])) {
                 $options_text .= "\nD. " . $option_d;
             }
             
-            // Combine question and options
             $question_text .= $options_text;
         }
-    } else {
-        // For other question types, just get the answer directly
-        $answer = trim($_POST['answer']);
+    } else if ($question_format === 'True/False') {
+        $answer = trim($_POST['true_false_answer']);
     }
     
-    if (empty($question_text)) {
-        $error_message = "Question text cannot be empty";
-    } else if (!isset($error_message)) { // Only proceed if no error message set
-        $stmt = $conn->prepare("
-            INSERT INTO Questions (quiz_id, text, question_format, answer)
-            VALUES (?, ?, ?, ?)
-        ");
-        $stmt->bind_param("isss", $quiz_id, $question_text, $question_format, $answer);
-        
-        if ($stmt->execute()) {
-            $success_message = "Question added successfully";
-            // Refresh the page to show the new question
-            header("Location: manage_questions.php?id=" . $quiz_id);
-            exit();
-        } else {
-            $error_message = "Error adding question: " . $conn->error;
+    if (empty($question_text) || !isset($answer)) {
+        $error_message = "Question text and answer are required";
+    } else {
+        try {
+            $stmt = $conn->prepare("
+                INSERT INTO Questions (quiz_id, text, question_format, answer)
+                VALUES (?, ?, ?, ?)
+            ");
+            $stmt->bind_param("isss", $quiz_id, $question_text, $question_format, $answer);
+            
+            if ($stmt->execute()) {
+                $success_message = "Question added successfully!";
+                // Use JavaScript redirect to force fresh page load
+                echo "<script>window.location.href='manage_questions.php?id=$quiz_id&t=" . time() . "';</script>";
+                exit();
+            } else {
+                $error_message = "Database error: " . $conn->error;
+            }
+        } catch (Exception $e) {
+            $error_message = "Error: " . $e->getMessage();
         }
     }
 }
@@ -132,13 +101,44 @@ if (isset($_GET['delete_question']) && is_numeric($_GET['delete_question'])) {
     
     if ($stmt->execute()) {
         $success_message = "Question deleted successfully";
-        // Refresh the page to update the question list
-        header("Location: manage_questions.php?id=" . $quiz_id);
+        // Use JavaScript redirect for a fresh page load
+        echo "<script>window.location.href='manage_questions.php?id=$quiz_id&t=" . time() . "';</script>";
         exit();
     } else {
         $error_message = "Error deleting question: " . $conn->error;
     }
 }
+
+// Now get the quiz information
+$stmt = $conn->prepare("
+    SELECT q.quiz_id, q.title, q.topic, q.is_automated_grading, q.is_published, c.title as course_title, c.course_id
+    FROM Quizzes q
+    JOIN Courses c ON q.course_id = c.course_id
+    WHERE q.quiz_id = ?
+");
+$stmt->bind_param("i", $quiz_id);
+$stmt->execute();
+$quiz_result = $stmt->get_result();
+
+if ($quiz_result->num_rows === 0) {
+    $_SESSION['error_message'] = "Quiz not found";
+    header("Location: instructor-dashboard.php");
+    exit();
+}
+
+$quiz = $quiz_result->fetch_assoc();
+
+// Get quiz questions - do this AFTER form processing to get fresh data
+$stmt = $conn->prepare("
+    SELECT question_id, text, question_format, answer
+    FROM Questions
+    WHERE quiz_id = ?
+    ORDER BY question_id
+");
+$stmt->bind_param("i", $quiz_id);
+$stmt->execute();
+$questions_result = $stmt->get_result();
+$question_count = $questions_result->num_rows;
 
 // Function to parse and display MCQ options
 function displayMCQOptions($questionText) {
@@ -164,6 +164,9 @@ function displayMCQOptions($questionText) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="description" content="Manage Quiz Questions - Learning Management System">
     <meta name="author" content="LMS Team">
     <title>Manage Quiz Questions</title>
@@ -233,11 +236,37 @@ function displayMCQOptions($questionText) {
             border-radius: 5px;
             background-color: #f9f9f9;
         }
+        .true-false-options {
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
         .list-group-item {
             border-left: 4px solid #007bff;
         }
         .mt-3 {
             margin-top: 15px;
+        }
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .quiz-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .status-draft {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-published {
+            background-color: #d4edda;
+            color: #155724;
         }
     </style>
 </head>
@@ -258,7 +287,7 @@ function displayMCQOptions($questionText) {
                     <li><a href="home.php">Home</a></li>
                     <li><a href="about-us.php">About Us</a></li>
                     <li><a href="courses.php">Courses</a></li>
-                    <li><a href="instructor_dashboard.php">Dashboard</a></li>
+                    <li><a href="instructor-dashboard.php">Dashboard</a></li>
                     <li><a href="profile.php">Profile</a></li>
                     <li><a class="btn btn-primary" href="logout.php">Logout</a></li>
                 </ul>
@@ -281,7 +310,7 @@ function displayMCQOptions($questionText) {
     <div class="container">
         <div class="row">
             <div class="col-md-12">
-                <p class="mt-3"><a href="instructor_dashboard.php#quizzes" class="btn btn-default"><i class="fa fa-arrow-left"></i> Back to Dashboard</a></p>
+                <p class="mt-3"><a href="instructor-dashboard.php" class="btn btn-default"><i class="fa fa-arrow-left"></i> Back to Dashboard</a></p>
                 
                 <?php if(!empty($success_message)): ?>
                     <div class="alert alert-success">
@@ -296,15 +325,37 @@ function displayMCQOptions($questionText) {
                 <?php endif; ?>
                 
                 <div class="quiz-info">
-                    <h3><?php echo htmlspecialchars($quiz['title']); ?></h3>
+                    <h3>
+                        <?php echo htmlspecialchars($quiz['title']); ?>
+                        <span class="quiz-status <?php echo isset($quiz['is_published']) && $quiz['is_published'] ? 'status-published' : 'status-draft'; ?>">
+                            <?php echo isset($quiz['is_published']) && $quiz['is_published'] ? 'Published' : 'Draft'; ?>
+                        </span>
+                    </h3>
                     <p><strong>Course:</strong> <?php echo htmlspecialchars($quiz['course_title']); ?></p>
                     <p><strong>Topic:</strong> <?php echo htmlspecialchars($quiz['topic']); ?></p>
                     <p><strong>Automated Grading:</strong> <?php echo $quiz['is_automated_grading'] ? 'Enabled' : 'Disabled'; ?></p>
+                    
+                    <div class="action-buttons">
+                    <?php if (isset($quiz['is_published']) && $quiz['is_published'] == 1): ?>
+    <a href="unpublish_quiz.php?id=<?php echo $quiz_id; ?>" class="btn btn-warning"
+       onclick="return confirm('Are you sure you want to unpublish this quiz? Students will no longer be able to access it.')">
+        <i class="fa fa-eye-slash"></i> Unpublish Quiz
+    </a>
+<?php else: ?>
+    <a href="post_quiz.php?id=<?php echo $quiz_id; ?>" class="btn btn-success">
+        <i class="fa fa-paper-plane"></i> Publish Quiz
+    </a>
+<?php endif; ?>
+                        
+                        <a href="instructor-dashboard.php#quizzes" class="btn btn-default" onclick="setActiveTab('quizzes')">
+    <i class="fa fa-th-list"></i> View All Quizzes
+</a>
+                    </div>
                 </div>
                 
                 <div class="add-question-form">
                     <h4>Add New Question</h4>
-                    <form method="post" action="manage_questions.php?id=<?php echo $quiz_id; ?>">
+                    <form id="question-form" method="post" action="">
                         <div class="form-group">
                             <label for="question_text">Question Text:</label>
                             <textarea class="form-control" id="question_text" name="question_text" rows="3" required></textarea>
@@ -314,8 +365,7 @@ function displayMCQOptions($questionText) {
                             <label for="question_format">Question Format:</label>
                             <select class="form-control" id="question_format" name="question_format" required onchange="toggleAnswerFields()">
                                 <option value="MCQ">Multiple Choice (MCQ)</option>
-                                <option value="Short Answer">Short Answer</option>
-                                <option value="Standardized">Standardized</option>
+                                <option value="True/False">True/False</option>
                             </select>
                         </div>
                         
@@ -368,10 +418,22 @@ function displayMCQOptions($questionText) {
                             </div>
                         </div>
                         
-                        <!-- Short Answer / Standardized Answer Field - initially hidden -->
-                        <div id="text_answer" class="form-group" style="display:none;">
-                            <label for="answer">Correct Answer:</label>
-                            <input type="text" class="form-control" id="answer" name="answer">
+                        <!-- True/False Options -->
+                        <div id="true_false_options" class="true-false-options" style="display:none;">
+                            <h5>True/False Answer</h5>
+                            <div class="form-group">
+                                <label>Correct Answer:</label>
+                                <div class="radio">
+                                    <label>
+                                        <input type="radio" name="true_false_answer" value="True" checked> True
+                                    </label>
+                                </div>
+                                <div class="radio">
+                                    <label>
+                                        <input type="radio" name="true_false_answer" value="False"> False
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         
                         <button type="submit" name="add_question" class="btn btn-primary">Add Question</button>
@@ -379,17 +441,14 @@ function displayMCQOptions($questionText) {
                 </div>
                 
                 <div class="questions-container">
-                    <h4>Current Questions (<?php echo $questions_result->num_rows; ?>)</h4>
+                    <h4>Current Questions (<?php echo $question_count; ?>)</h4>
                     
-                    <?php if ($questions_result->num_rows > 0): ?>
+                    <?php if ($question_count > 0): ?>
                         <?php while($question = $questions_result->fetch_assoc()): ?>
                             <div class="question-card">
                                 <div class="question-header">
                                     <span class="label label-primary"><?php echo htmlspecialchars($question['question_format']); ?></span>
                                     <div>
-                                        <button type="button" class="btn btn-warning btn-sm" onclick="editQuestion(<?php echo $question['question_id']; ?>)">
-                                            <i class="fa fa-edit"></i> Edit
-                                        </button>
                                         <a href="manage_questions.php?id=<?php echo $quiz_id; ?>&delete_question=<?php echo $question['question_id']; ?>" 
                                            class="btn btn-danger btn-sm" 
                                            onclick="return confirm('Are you sure you want to delete this question?')">
@@ -401,6 +460,9 @@ function displayMCQOptions($questionText) {
                                 <?php if ($question['question_format'] === 'MCQ'): ?>
                                     <?php displayMCQOptions($question['text']); ?>
                                     <p><strong>Correct Answer:</strong> Option <?php echo htmlspecialchars($question['answer']); ?></p>
+                                <?php elseif ($question['question_format'] === 'True/False'): ?>
+                                    <p><strong>Question:</strong> <?php echo htmlspecialchars($question['text']); ?></p>
+                                    <p><strong>Correct Answer:</strong> <?php echo htmlspecialchars($question['answer']); ?></p>
                                 <?php else: ?>
                                     <p><strong>Question:</strong> <?php echo htmlspecialchars($question['text']); ?></p>
                                     <p><strong>Correct Answer:</strong> <?php echo htmlspecialchars($question['answer']); ?></p>
@@ -413,6 +475,25 @@ function displayMCQOptions($questionText) {
                         </div>
                     <?php endif; ?>
                 </div>
+                
+                <div class="action-buttons" style="margin-bottom: 30px;">
+                    <a href="instructor-dashboard.php" class="btn btn-default">
+                        <i class="fa fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                    
+                    <?php if ($question_count > 0): ?>
+                        <?php if (isset($quiz['is_published']) && $quiz['is_published']): ?>
+                            <a href="unpublish_quiz.php?id=<?php echo $quiz_id; ?>" class="btn btn-warning"
+                               onclick="return confirm('Are you sure you want to unpublish this quiz?')">
+                                <i class="fa fa-eye-slash"></i> Unpublish Quiz
+                            </a>
+                        <?php else: ?>
+                            <a href="post_quiz.php?id=<?php echo $quiz_id; ?>" class="btn btn-success">
+                                <i class="fa fa-paper-plane"></i> Publish Quiz
+                            </a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -423,36 +504,52 @@ function displayMCQOptions($questionText) {
         function toggleAnswerFields() {
             const questionFormat = document.getElementById('question_format').value;
             const mcqOptions = document.getElementById('mcq_options');
-            const textAnswer = document.getElementById('text_answer');
+            const trueFalseOptions = document.getElementById('true_false_options');
             
             if (questionFormat === 'MCQ') {
                 mcqOptions.style.display = 'block';
-                textAnswer.style.display = 'none';
+                trueFalseOptions.style.display = 'none';
                 
                 // Make MCQ fields required
                 document.getElementById('option_a').required = true;
                 document.getElementById('option_b').required = true;
-                document.getElementById('answer').required = false;
-            } else {
+            } else if (questionFormat === 'True/False') {
                 mcqOptions.style.display = 'none';
-                textAnswer.style.display = 'block';
+                trueFalseOptions.style.display = 'block';
                 
-                // Make text answer field required
+                // Make MCQ fields not required
                 document.getElementById('option_a').required = false;
                 document.getElementById('option_b').required = false;
-                document.getElementById('answer').required = true;
             }
-        }
-        
-        function editQuestion(questionId) {
-            alert('Edit question functionality would be implemented here for question ID: ' + questionId);
-            // In a real implementation, this would open a modal or redirect to an edit page
         }
         
         // Initialize the form on page load
         document.addEventListener('DOMContentLoaded', function() {
             toggleAnswerFields();
+            
+            // Set focus to quizzes tab when back button is clicked
+            const backButton = document.querySelector('a[href="instructor-dashboard.php#quizzes"]');
+            if (backButton) {
+                backButton.addEventListener('click', function() {
+                    localStorage.setItem('activeTab', 'quizzes');
+                });
+            }
+            
+            // Optional: Confirm form submission to prevent accidental reloads
+            document.getElementById('question-form').addEventListener('submit', function(e) {
+                var questionText = document.getElementById('question_text').value.trim();
+                if (questionText === '') {
+                    e.preventDefault();
+                    alert('Please enter a question text.');
+                    return false;
+                }
+                return true;
+            });
         });
+
+        function setActiveTab(tabName) {
+    localStorage.setItem('activeTab', tabName);
+}
     </script>
 </body>
 </html>
