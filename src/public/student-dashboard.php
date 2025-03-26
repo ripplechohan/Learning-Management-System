@@ -54,7 +54,7 @@ $upcoming_assignments = $stmt->get_result();
 
 // Fetch submitted assignments
 $stmt = $conn->prepare("
-    SELECT s.submission_id, a.title as assignment_title, s.date_submitted, s.grade, c.title as course_title
+    SELECT s.submission_id, a.title as assignment_title, s.date_submitted, s.grade, c.title as course_title, c.course_id
     FROM Submissions s
     JOIN Assignments a ON s.assignment_id = a.assignment_id
     JOIN Courses c ON a.course_id = c.course_id
@@ -65,18 +65,102 @@ $stmt->bind_param("i", $student_id);
 $stmt->execute();
 $submitted_assignments = $stmt->get_result();
 
-// Fetch instructors for communication
+// Fetch available quizzes (published only)
 $stmt = $conn->prepare("
-    SELECT u.user_id, u.name, c.title as course_title
-    FROM Users u
-    JOIN Courses c ON c.course_id IN (
-        SELECT e.course_id FROM Enrollments e WHERE e.student_id = ?
-    )
-    WHERE u.role = 'Instructor'
+    SELECT q.quiz_id, q.title, c.title as course_title, q.created_at
+    FROM Quizzes q
+    JOIN Courses c ON q.course_id = c.course_id
+    JOIN Enrollments e ON c.course_id = e.course_id
+    WHERE e.student_id = ? AND q.is_published = 1
+    ORDER BY q.created_at DESC
+    LIMIT 5
 ");
 $stmt->bind_param("i", $student_id);
 $stmt->execute();
-$instructors = $stmt->get_result();
+$available_quizzes = $stmt->get_result();
+
+// Fetch completed quizzes
+$stmt = $conn->prepare("
+    SELECT sq.student_quiz_id, sq.quiz_id, q.title, sq.score, sq.total_questions, 
+           sq.completed_at, c.title as course_title, c.course_id
+    FROM StudentQuizzes sq
+    JOIN Quizzes q ON sq.quiz_id = q.quiz_id
+    JOIN Courses c ON q.course_id = c.course_id
+    WHERE sq.student_id = ? AND sq.is_completed = 1
+    ORDER BY sq.completed_at DESC
+");
+$stmt->bind_param("i", $student_id);
+$stmt->execute();
+$completed_quizzes = $stmt->get_result();
+
+// Create an array of completed quiz IDs for easy lookup
+$completed_quiz_ids = [];
+while ($completed = $completed_quizzes->fetch_assoc()) {
+    $completed_quiz_ids[$completed['quiz_id']] = $completed;
+}
+// Reset the result pointer
+$completed_quizzes->data_seek(0);
+
+// Organize grades by course
+$grades_by_course = [];
+
+// Add assignment grades to the course array
+while ($assignment = $submitted_assignments->fetch_assoc()) {
+    $course_id = $assignment['course_id'];
+    $course_title = $assignment['course_title'];
+    
+    if (!isset($grades_by_course[$course_id])) {
+        $grades_by_course[$course_id] = [
+            'title' => $course_title,
+            'assignments' => [],
+            'quizzes' => []
+        ];
+    }
+    
+    $grades_by_course[$course_id]['assignments'][] = [
+        'title' => $assignment['assignment_title'],
+        'date' => $assignment['date_submitted'],
+        'grade' => $assignment['grade']
+    ];
+}
+
+// Reset pointer
+$submitted_assignments->data_seek(0);
+
+// Add quiz grades to the course array
+while ($quiz = $completed_quizzes->fetch_assoc()) {
+    $course_id = $quiz['course_id'];
+    $course_title = $quiz['course_title'];
+    
+    if (!isset($grades_by_course[$course_id])) {
+        $grades_by_course[$course_id] = [
+            'title' => $course_title,
+            'assignments' => [],
+            'quizzes' => []
+        ];
+    }
+    
+    $percentage = ($quiz['total_questions'] > 0) ? 
+        round(($quiz['score'] / $quiz['total_questions']) * 100) : 0;
+    
+    $grades_by_course[$course_id]['quizzes'][] = [
+        'title' => $quiz['title'],
+        'date' => $quiz['completed_at'],
+        'score' => $quiz['score'],
+        'total' => $quiz['total_questions'],
+        'percentage' => $percentage
+    ];
+}
+
+// Reset pointer
+$completed_quizzes->data_seek(0);
+
+// Check for success message
+$success_message = '';
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -162,6 +246,78 @@ $instructors = $stmt->get_result();
             font-weight: bold;
             color: #333;
         }
+        .badge-success {
+            background-color: #28a745;
+        }
+        .badge-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .ml-2 {
+            margin-left: 0.5rem;
+        }
+        .alert {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .btn-completed {
+            background-color: #6c757d;
+            color: white;
+            cursor: default;
+        }
+        .btn-completed:hover {
+            background-color: #6c757d;
+            color: white;
+        }
+        .course-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .course-header {
+            background-color: #f5f5f5;
+            padding: 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+        }
+        .course-content {
+            padding: 15px;
+            display: none;
+        }
+        .grade-table {
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        .grade-table th {
+            background-color: #f8f9fa;
+        }
+        .grade-a {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .grade-b {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        .grade-c {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .grade-d {
+            color: #fd7e14;
+            font-weight: bold;
+        }
+        .grade-f {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .no-grades {
+            text-align: center;
+            padding: 10px;
+            font-style: italic;
+            color: #6c757d;
+        }
     </style>
 </head>
 <body>
@@ -193,12 +349,18 @@ $instructors = $stmt->get_result();
             <h2 class="text-center">Student Dashboard</h2>
             <p class="text-center welcome-message">Welcome, <?php echo htmlspecialchars($student_name); ?>!</p>
             
+            <?php if (!empty($success_message)): ?>
+                <div class="alert alert-success">
+                    <?php echo $success_message; ?>
+                </div>
+            <?php endif; ?>
+            
             <div class="nav-tabs">
                 <a href="#overview" class="tab-link active" onclick="showTab(event, 'overview')">Overview</a>
                 <a href="#courses" class="tab-link" onclick="showTab(event, 'courses')">Course Access</a>
                 <a href="#assignments" class="tab-link" onclick="showTab(event, 'assignments')">Assignments</a>
+                <a href="#quizzes" class="tab-link" onclick="showTab(event, 'quizzes')">Quizzes</a>
                 <a href="#progress" class="tab-link" onclick="showTab(event, 'progress')">Progress Tracking</a>
-                <a href="#communication" class="tab-link" onclick="showTab(event, 'communication')">Communication</a>
             </div>
 
             <div id="overview" class="dashboard-box tab-content">
@@ -228,6 +390,25 @@ $instructors = $stmt->get_result();
                         <?php $upcoming_assignments->data_seek(0); // Reset the result pointer ?>
                     <?php else: ?>
                         <li class="list-group-item">No upcoming assignments</li>
+                    <?php endif; ?>
+                </ul>
+                
+                <h4>Available Quizzes</h4>
+                <ul class="list-group">
+                    <?php if ($available_quizzes->num_rows > 0): ?>
+                        <?php while($quiz = $available_quizzes->fetch_assoc()): ?>
+                            <li class="list-group-item">
+                                <?php echo htmlspecialchars($quiz['title']); ?> 
+                                (<?php echo htmlspecialchars($quiz['course_title']); ?>) - 
+                                Created on <?php echo date('d/m/Y', strtotime($quiz['created_at'])); ?>
+                                <?php if (isset($completed_quiz_ids[$quiz['quiz_id']])): ?>
+                                    <span class="badge badge-success">Completed</span>
+                                <?php endif; ?>
+                            </li>
+                        <?php endwhile; ?>
+                        <?php $available_quizzes->data_seek(0); // Reset the result pointer ?>
+                    <?php else: ?>
+                        <li class="list-group-item">No quizzes available</li>
                     <?php endif; ?>
                 </ul>
                 
@@ -292,10 +473,6 @@ $instructors = $stmt->get_result();
                                     </td>
                                 </tr>
                             <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="4" class="text-center">No pending assignments</td>
-                            </tr>
                         <?php endif; ?>
                         
                         <?php if ($submitted_assignments->num_rows > 0): ?>
@@ -320,6 +497,82 @@ $instructors = $stmt->get_result();
                                 </tr>
                             <?php endwhile; ?>
                         <?php endif; ?>
+                        
+                        <?php if ($upcoming_assignments->num_rows == 0 && $submitted_assignments->num_rows == 0): ?>
+                            <tr>
+                                <td colspan="4" class="text-center">No assignments found</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="quizzes" class="dashboard-box tab-content" style="display:none;">
+                <h3>Quizzes</h3>
+                
+                <h4>Available Quizzes</h4>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Quiz</th>
+                            <th>Course</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($available_quizzes->num_rows > 0): ?>
+                            <?php while($quiz = $available_quizzes->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($quiz['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($quiz['course_title']); ?></td>
+                                    <td>
+                                        <?php if (isset($completed_quiz_ids[$quiz['quiz_id']])): ?>
+                                            <button class="btn btn-completed" disabled>Completed</button>
+                                        <?php else: ?>
+                                            <a href="attempt_quiz.php?id=<?php echo $quiz['quiz_id']; ?>" class="btn btn-primary">Attempt Quiz</a>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="3" class="text-center">No available quizzes</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+                
+                <h4>Completed Quizzes</h4>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Quiz</th>
+                            <th>Course</th>
+                            <th>Score</th>
+                            <th>Completed On</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($completed_quizzes->num_rows > 0): ?>
+                            <?php while($quiz = $completed_quizzes->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($quiz['title']); ?></td>
+                                    <td><?php echo htmlspecialchars($quiz['course_title']); ?></td>
+                                    <td>
+                                        <?php 
+                                            $percentage = ($quiz['total_questions'] > 0) ? 
+                                                round(($quiz['score'] / $quiz['total_questions']) * 100) : 0;
+                                            echo $quiz['score'] . '/' . $quiz['total_questions'] . ' (' . $percentage . '%)';
+                                        ?>
+                                    </td>
+                                    <td><?php echo date('d/m/Y', strtotime($quiz['completed_at'])); ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="4" class="text-center">No completed quizzes</td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -327,9 +580,10 @@ $instructors = $stmt->get_result();
             <div id="progress" class="dashboard-box tab-content" style="display:none;">
                 <h3>Progress Tracking</h3>
                 
+                <h4>Course Progress Overview</h4>
                 <?php if ($enrolled_courses->num_rows > 0): ?>
                     <?php while($course = $enrolled_courses->fetch_assoc()): ?>
-                        <h4><?php echo htmlspecialchars($course['title']); ?></h4>
+                        <h5><?php echo htmlspecialchars($course['title']); ?></h5>
                         <div class="progress">
                             <div class="progress-bar" role="progressbar" 
                                 style="width: <?php echo $course['progress_percentage']; ?>%;" 
@@ -343,44 +597,127 @@ $instructors = $stmt->get_result();
                     <p>No courses to track progress</p>
                 <?php endif; ?>
                 
-                <h4>Completed Modules</h4>
-                <ul class="list-group">
-                    <!-- This would need additional database queries to show completed modules -->
-                    <!-- For now, we'll show placeholder data -->
-                    <li class="list-group-item">Module 1: AI Basics - Grade: A</li>
-                    <li class="list-group-item">Module 2: Machine Learning - Grade: B+</li>
-                    <li class="list-group-item">Module 3: Neural Networks - Grade: A-</li>
-                    <li class="list-group-item">Module 4: Deep Learning - Grade: B</li>
-                </ul>
-            </div>
-
-            <div id="communication" class="dashboard-box tab-content" style="display:none;">
-                <h3>Communication</h3>
-                <form action="send_message.php" method="post">
-                    <div class="form-group">
-                        <label for="instructorSelect">Select Instructor:</label>
-                        <select class="form-control" id="instructorSelect" name="instructor_id" required>
-                            <?php if ($instructors->num_rows > 0): ?>
-                                <?php while($instructor = $instructors->fetch_assoc()): ?>
-                                    <option value="<?php echo $instructor['user_id']; ?>">
-                                        <?php echo htmlspecialchars($instructor['name'] . ' - ' . $instructor['course_title']); ?>
-                                    </option>
-                                <?php endwhile; ?>
-                            <?php else: ?>
-                                <option value="">No instructors available</option>
-                            <?php endif; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="questionText">Your Question:</label>
-                        <textarea class="form-control" id="questionText" name="question_text" rows="3" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="attachmentFile">Attach Screenshot or File:</label>
-                        <input type="file" class="form-control-file" id="attachmentFile" name="attachment">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Send Question</button>
-                </form>
+                <h4 class="mt-4">Course Details and Grades</h4>
+                
+                <?php if (!empty($grades_by_course)): ?>
+                    <?php foreach ($grades_by_course as $course_id => $course_data): ?>
+                        <div class="course-card">
+                            <div class="course-header" onclick="toggleCourseGrades(<?php echo $course_id; ?>)">
+                                <h5>
+                                    <i class="fa fa-chevron-right" id="course-grades-icon-<?php echo $course_id; ?>"></i>
+                                    <?php echo htmlspecialchars($course_data['title']); ?>
+                                </h5>
+                            </div>
+                            <div class="course-content" id="course-grades-content-<?php echo $course_id; ?>">
+                                <?php if (!empty($course_data['assignments'])): ?>
+                                    <h6>Assignments</h6>
+                                    <table class="grade-table table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Assignment</th>
+                                                <th>Submission Date</th>
+                                                <th>Grade</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($course_data['assignments'] as $assignment): ?>
+                                                <tr>
+                                                    <td><?php echo htmlspecialchars($assignment['title']); ?></td>
+                                                    <td><?php echo date('d/m/Y', strtotime($assignment['date'])); ?></td>
+                                                    <td>
+                                                        <?php if ($assignment['grade'] !== null): ?>
+                                                            <?php 
+                                                                $grade_class = '';
+                                                                $grade_letter = '';
+                                                                
+                                                                if ($assignment['grade'] >= 90) {
+                                                                    $grade_class = 'grade-a';
+                                                                    $grade_letter = 'A';
+                                                                } elseif ($assignment['grade'] >= 80) {
+                                                                    $grade_class = 'grade-b';
+                                                                    $grade_letter = 'B';
+                                                                } elseif ($assignment['grade'] >= 70) {
+                                                                    $grade_class = 'grade-c';
+                                                                    $grade_letter = 'C';
+                                                                } elseif ($assignment['grade'] >= 60) {
+                                                                    $grade_class = 'grade-d';
+                                                                    $grade_letter = 'D';
+                                                                } else {
+                                                                    $grade_class = 'grade-f';
+                                                                    $grade_letter = 'F';
+                                                                }
+                                                            ?>
+                                                            <span class="<?php echo $grade_class; ?>">
+                                                                <?php echo $assignment['grade']; ?>% (<?php echo $grade_letter; ?>)
+                                                            </span>
+                                                        <?php else: ?>
+                                                            Pending
+                                                        <?php endif; ?>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                <?php else: ?>
+                                    <p class="no-grades">No completed assignments for this course</p>
+                                <?php endif; ?>
+                                
+                                <?php if (!empty($course_data['quizzes'])): ?>
+                                    <h6>Quizzes</h6>
+                                    <table class="grade-table table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Quiz</th>
+                                                <th>Completion Date</th>
+                                                <th>Score</th>
+                                                <th>Grade</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($course_data['quizzes'] as $quiz): ?>
+                                                <tr>
+                                                    <td><?php echo htmlspecialchars($quiz['title']); ?></td>
+                                                    <td><?php echo date('d/m/Y', strtotime($quiz['date'])); ?></td>
+                                                    <td><?php echo $quiz['score']; ?>/<?php echo $quiz['total']; ?></td>
+                                                    <td>
+                                                        <?php 
+                                                            $grade_class = '';
+                                                            $grade_letter = '';
+                                                            
+                                                            if ($quiz['percentage'] >= 90) {
+                                                                $grade_class = 'grade-a';
+                                                                $grade_letter = 'A';
+                                                            } elseif ($quiz['percentage'] >= 80) {
+                                                                $grade_class = 'grade-b';
+                                                                $grade_letter = 'B';
+                                                            } elseif ($quiz['percentage'] >= 70) {
+                                                                $grade_class = 'grade-c';
+                                                                $grade_letter = 'C';
+                                                            } elseif ($quiz['percentage'] >= 60) {
+                                                                $grade_class = 'grade-d';
+                                                                $grade_letter = 'D';
+                                                            } else {
+                                                                $grade_class = 'grade-f';
+                                                                $grade_letter = 'F';
+                                                            }
+                                                        ?>
+                                                        <span class="<?php echo $grade_class; ?>">
+                                                            <?php echo $quiz['percentage']; ?>% (<?php echo $grade_letter; ?>)
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                <?php else: ?>
+                                    <p class="no-grades">No completed quizzes for this course</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p class="text-center">No grades available yet. Complete assignments and quizzes to see your grades here.</p>
+                <?php endif; ?>
             </div>
         </div>
     </section>
@@ -388,6 +725,11 @@ $instructors = $stmt->get_result();
     <script src="js/jquery.js"></script>
     <script src="js/bootstrap.min.js"></script>
     <script>
+        // Function to set which tab should be active
+        function setActiveTab(tabName) {
+            localStorage.setItem('activeTab', tabName);
+        }
+        
         function showTab(event, tabId) {
             event.preventDefault();
             let tabs = document.querySelectorAll('.tab-content');
@@ -395,8 +737,53 @@ $instructors = $stmt->get_result();
             tabs.forEach(tab => tab.style.display = 'none');
             links.forEach(link => link.classList.remove('active'));
             document.getElementById(tabId).style.display = 'block';
-            event.target.classList.add('active');
+            
+            // Find the correct link and add the active class
+            const activeLink = document.querySelector(`.tab-link[href="#${tabId}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            } else {
+                event.target.classList.add('active');
+            }
+            
+            // Store the active tab in localStorage
+            localStorage.setItem('activeTab', tabId);
         }
+        
+        function toggleCourseGrades(courseId) {
+            const content = document.getElementById('course-grades-content-' + courseId);
+            const icon = document.getElementById('course-grades-icon-' + courseId);
+            
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                icon.className = 'fa fa-chevron-right';
+            } else {
+                content.style.display = 'block';
+                icon.className = 'fa fa-chevron-down';
+            }
+        }
+        
+        // When the page loads, check if there's a stored active tab or URL hash
+        document.addEventListener('DOMContentLoaded', function() {
+            const hash = window.location.hash.substring(1);
+            const storedTab = localStorage.getItem('activeTab');
+            
+            // Priority: URL hash > stored tab > default (overview)
+            const tabToShow = hash || storedTab || 'overview';
+            
+            // Find the tab link and trigger a click to show the tab
+            const tabLink = document.querySelector('.tab-link[href="#' + tabToShow + '"]');
+            if (tabLink) {
+                // Create a synthetic event
+                const event = {
+                    preventDefault: function() {},
+                    target: tabLink
+                };
+                
+                // Call the showTab function
+                showTab(event, tabToShow);
+            }
+        });
     </script>
 </body>
 </html>
