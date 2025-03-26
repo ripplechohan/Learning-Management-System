@@ -140,3 +140,34 @@ CREATE TABLE StudentFeedback(
 CREATE USER 'lms_system'@'localhost' IDENTIFIED BY '7F2U5oH#';
 GRANT ALL PRIVILEGES ON LMS.* TO 'lms_system'@'localhost';
 FLUSH PRIVILEGES;
+
+-- Create table to store student quiz attempts and results
+CREATE TABLE IF NOT EXISTS StudentQuizzes (
+    student_quiz_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT NOT NULL,
+    quiz_id INT NOT NULL,
+    score INT DEFAULT 0,
+    total_questions INT DEFAULT 0,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    is_completed BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (student_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id) ON DELETE CASCADE
+);
+
+-- Create table to store individual student answers to quiz questions
+CREATE TABLE IF NOT EXISTS StudentQuizAnswers (
+    answer_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_quiz_id INT NOT NULL,
+    question_id INT NOT NULL,
+    selected_answer VARCHAR(255) NOT NULL,
+    is_correct BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (student_quiz_id) REFERENCES StudentQuizzes(student_quiz_id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES Questions(question_id) ON DELETE CASCADE
+);
+
+-- Modify the Questions table to only support objective type questions
+-- Note: We're keeping compatibility with your existing structure 
+-- but adding an enumeration constraint to question_format
+ALTER TABLE Questions 
+MODIFY COLUMN question_format ENUM('MCQ', 'True/False') NOT NULL;
