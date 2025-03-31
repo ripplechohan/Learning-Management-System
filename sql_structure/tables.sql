@@ -205,3 +205,6 @@ BEGIN
     END IF;
 END //
 DELIMITER ;
+
+ALTER TABLE Questions 
+MODIFY COLUMN question_format ENUM('MCQ', 'True/False', 'Essay') NOT NULL;
