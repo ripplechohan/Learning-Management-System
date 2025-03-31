@@ -208,3 +208,14 @@ DELIMITER ;
 
 ALTER TABLE Questions 
 MODIFY COLUMN question_format ENUM('MCQ', 'True/False', 'Essay') NOT NULL;
+
+-- This will show the constraint names
+SHOW CREATE TABLE Questions;
+
+-- Then drop the conflicting constraint (replace 'constraint_name' with the actual name)
+ALTER TABLE Questions DROP CONSTRAINT questions_chk_1;
+
+-- And if needed, add a new constraint that matches your ENUM
+ALTER TABLE Questions 
+ADD CONSTRAINT questions_format_check 
+CHECK (question_format IN ('MCQ', 'True/False', 'Essay'));
