@@ -174,3 +174,34 @@ MODIFY COLUMN question_format ENUM('MCQ', 'True/False') NOT NULL;
 
 ALTER TABLE Quizzes 
 ADD COLUMN is_published BOOLEAN DEFAULT 0;
+
+ALTER TABLE Questions 
+MODIFY COLUMN question_format ENUM('MCQ', 'True/False', 'Essay') NOT NULL;
+
+-- Add a column for essay answers which can be longer than the regular answer field
+ALTER TABLE Questions
+ADD COLUMN essay_answer_template TEXT NULL;
+
+-- Update the StudentQuizAnswers table to accommodate essay answers
+ALTER TABLE StudentQuizAnswers
+MODIFY COLUMN selected_answer TEXT NOT NULL;
+
+-- Add a column for manual grading of essay questions
+ALTER TABLE StudentQuizAnswers
+ADD COLUMN instructor_feedback TEXT NULL,
+ADD COLUMN is_graded BOOLEAN DEFAULT FALSE;
+
+-- Update Quizzes table to indicate if manual grading is required
+ALTER TABLE Quizzes
+ADD COLUMN requires_manual_grading BOOLEAN DEFAULT FALSE;
+
+-- Create a trigger to update the requires_manual_grading flag when essay questions are added
+DELIMITER //
+CREATE TRIGGER update_quiz_grading_flag AFTER INSERT ON Questions
+FOR EACH ROW
+BEGIN
+    IF NEW.question_format = 'Essay' THEN
+        UPDATE Quizzes SET requires_manual_grading = TRUE WHERE quiz_id = NEW.quiz_id;
+    END IF;
+END //
+DELIMITER ;
