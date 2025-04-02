@@ -227,7 +227,5 @@ MODIFY COLUMN score DECIMAL(5,2) DEFAULT 0.00;
 ALTER TABLE StudentFeedback
 ADD COLUMN needs_regeneration BOOLEAN DEFAULT FALSE;
 
--- Update any existing records to ensure they're not flagged
-UPDATE StudentFeedback SET needs_regeneration = 0 WHERE needs_regeneration IS NULL;
-ALTER TABLE StudentFeedback 
-ADD COLUMN needs_regeneration BOOLEAN DEFAULT 0;
+
+
