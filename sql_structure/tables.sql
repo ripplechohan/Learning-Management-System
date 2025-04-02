@@ -223,3 +223,9 @@ ALTER TABLE StudentQuizAnswers
 MODIFY COLUMN is_correct DECIMAL(5,2) DEFAULT 0.00;
 ALTER TABLE StudentQuizzes 
 MODIFY COLUMN score DECIMAL(5,2) DEFAULT 0.00;
+-- Add a flag column to track if feedback needs regeneration
+ALTER TABLE StudentFeedback
+ADD COLUMN needs_regeneration BOOLEAN DEFAULT FALSE;
+
+-- Update any existing records to ensure they're not flagged
+UPDATE StudentFeedback SET needs_regeneration = 0 WHERE needs_regeneration IS NULL;
