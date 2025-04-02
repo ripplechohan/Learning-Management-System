@@ -221,3 +221,5 @@ ADD CONSTRAINT questions_format_check
 CHECK (question_format IN ('MCQ', 'True/False', 'Essay'));
 ALTER TABLE StudentQuizAnswers 
 MODIFY COLUMN is_correct DECIMAL(5,2) DEFAULT 0.00;
+ALTER TABLE StudentQuizzes 
+MODIFY COLUMN score DECIMAL(5,2) DEFAULT 0.00;
