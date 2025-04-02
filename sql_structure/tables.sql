@@ -227,5 +227,26 @@ MODIFY COLUMN score DECIMAL(5,2) DEFAULT 0.00;
 ALTER TABLE StudentFeedback
 ADD COLUMN needs_regeneration BOOLEAN DEFAULT FALSE;
 
+ALTER TABLE Courses 
+ADD COLUMN instructor_id INT NULL;
 
+-- Step 2: Update existing records
+-- Assign a default instructor ID to existing courses
+-- Example: Assign to the first instructor in the system
+UPDATE Courses SET instructor_id = (
+    SELECT user_id FROM Users 
+    WHERE role = 'Instructor' 
+    LIMIT 1
+);
 
+-- Step 3: Once data is populated, make the column NOT NULL
+ALTER TABLE Courses 
+MODIFY COLUMN instructor_id INT NOT NULL;
+
+-- Step 4: Now add the foreign key constraint
+ALTER TABLE Courses
+ADD CONSTRAINT fk_course_instructor
+FOREIGN KEY (instructor_id) REFERENCES Users(user_id);
+
+-- Step 5: Create an index for better performance
+CREATE INDEX idx_instructor_courses ON Courses(instructor_id);
