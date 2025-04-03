@@ -250,3 +250,7 @@ FOREIGN KEY (instructor_id) REFERENCES Users(user_id);
 
 -- Step 5: Create an index for better performance
 CREATE INDEX idx_instructor_courses ON Courses(instructor_id);
+
+-- Run this SQL to alter the StudentFeedback table
+ALTER TABLE StudentFeedback
+MODIFY COLUMN course_id INT NULL;
