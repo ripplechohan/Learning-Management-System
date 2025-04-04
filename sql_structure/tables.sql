@@ -16,6 +16,22 @@ CREATE TABLE Users (
     last_login TIMESTAMP NULL
 );
 
+INSERT INTO Users (
+    name,
+    email,
+    password,
+    role,
+    active,
+    created_at
+) VALUES (
+    'Admin User',
+    'admin@lms.com',
+    '$2y$10$rNC7o9bYI.gGMFV7Khr7L.xIPPQCcI0RJIPGZiyg1nUoJ1HS2OW9W',  -- This is the hashed version of 'admin123'
+    'Admin',
+    TRUE,
+    CURRENT_TIMESTAMP
+);
+
 -- Create Courses table
 CREATE TABLE Courses (
     course_id INT PRIMARY KEY AUTO_INCREMENT,
